@@ -1,4 +1,0 @@
-﻿### Kommunikationsobjekte
-
-### Globale Kommunikationsobjekte
-

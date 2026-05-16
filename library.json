@@ -1,7 +1,7 @@
 {
-    "name": "OFM-HueGatewayModule",
-    "version": "0.4.2",
-    "description": "Philips Hue integration module for OpenKNX, can be embedded in an ETS application",
+    "name": "OFM-LightManagerModule",
+    "version": "0.1.0",
+    "description": "Light Manager module for OpenKNX — HCL (Human Centric Lighting) engine, decoupled from Hue gateway",
     "homepage": "https://openknx.de",
     "authors": {
         "name": "OpenKNX",
@@ -11,13 +11,9 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/estebanri87/OFM-HueGatewayModule"
+        "url": "https://github.com/estebanri87/OFM-LightManager"
     },
     "build": {
         "srcFilter": "+<*> -<main.cpp>"
-    },
-    "dependencies": {
-        "bblanchon/ArduinoJson": "^6.21.0"
     }
 }
-

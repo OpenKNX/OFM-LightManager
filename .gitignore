@@ -1,5 +1,4 @@
 .pio
-.github/
 .vscode
 .DS_Store
 *.pyc
@@ -10,5 +9,4 @@ __pycache__
 .clang_complete
 .gcc-flags.json
 platformio.ini.user
-.github/
-src/HueGatewayModule.share.xml.bak
+src/LightManagerModule.share.xml.bak
