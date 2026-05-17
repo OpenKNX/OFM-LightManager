@@ -1,67 +1,95 @@
-# Applikationsbeschreibung Philips Hue Gateway Modul
+# Applikationsbeschreibung OFM-LightManager
 
-Das OFM-HueGatewayModule verbindet Philips Hue Leuchten mit dem KNX-Bus.
-Die Kommunikation erfolgt über die Hue Bridge (Hue API v2).
+OpenKNX Function-Module zur tageszeitabhängigen Steuerung von Helligkeit und Farbtemperatur (Human Centric Lighting).
+Bis zu 16 unabhängige Lichtmanager liefern Sollwerte, die von kompatiblen Ausgabemodulen (z. B. OFM-HueGatewayModule) konsumiert werden.
 
-# Applikationsprogramm
-
-## Inhaltsverzeichnis
-
-- [Allgemein](#allgemein)
-- [Unterstützte Geräte](#unterstützte-geräte)
-- [Bridge-Konfiguration](#bridge-konfiguration)
-- [Kanal 1-n (Hue Ziele)](#kanal-1-n-hue-ziele)
-- [Lichtmanager](#lichtmanager)
-- [Kommunikationsobjekte](#kommunikationsobjekte)
-- [Projektierungsbeispiele](#projektierungsbeispiele)
-- [Performance-Empfehlungen](#performance-empfehlungen)
-- [Häufige Fehler und Lösungen](#häufige-fehler-und-lösungen)
-- [Inbetriebnahme-Checkliste](#inbetriebnahme-checkliste)
-
-<!-- DOC -->
-## Allgemein
+<!-- DOC HelpContext="Allgemein" -->
+### Allgemein
 
 (c) OpenKNX, Steffen Rittmeier 2026
 
 Die vollständige Projektdokumentation ist unter https://github.com/OpenKNX/OFM-LightManager verfügbar.
 
+Das Modul übernimmt die Berechnung der HCL-Sollwerte:
 
+`Stützpunkte / Astro / Sensor` → `OFM-LightManager` → `Status-KOs / Konsumenten-Modul`
 
-#### Beispielkonfigurationen
+**Wichtig:**
+- Das Modul stellt nur Sollwerte bereit. Die eigentliche Ausgabe an Leuchten erfolgt in den jeweiligen Ziel-Modulen oder GA´s).
+- Parameter und KOs müssen in ETS konsistent projektiert werden.
+- Logikfunktionen (Saison-Logik, Zentralfunktionen) können in dedizierten Logikmodulen umgesetzt werden.
+<!-- DOCEND -->
 
-#### Lichtmanager-Sperre bei Szenen
+## Inhaltsverzeichnis
 
-Wenn einem Kanal ein Lichtmanager zugeordnet ist, **sperrt ein erfolgreicher Szenen-Abruf automatisch die HCL-Kanalausgabe** für diesen Kanal. Damit behält das Licht nach dem Szenen-Abruf seinen Szenen-Wert, ohne dass der Lichtmanager ihn überschreibt.
-
-Die Sperre wird aufgehoben durch:
-- **Aus-Befehl** per KNX-Schalten-KO → Sperre wird sofort zurückgesetzt
-- Ablauf der konfigurierten Rückfallzeit (→ Abschnitt [Sperre (kanal-spezifisch)](#sperre-kanal-spezifisch))
-- Globales Entsperren per KO
-
+- [Human Centric Lighting](#human-centric-lighting)
+- [Lichtmanager Auswahl](#lichtmanager-auswahl)
+- [Einstellungen](#einstellungen)
+- [Sperre (global)](#sperre-global)
+- [Rückfallstrategie nach Sperre](#rückfallstrategie-nach-sperre)
+- [Status-KOs je Lichtmanager](#status-kos-je-lichtmanager)
+- [Lichtmanager 1..16](#lichtmanager-116)
+- [Saison-Profil](#saison-profil)
+- [Adaptive Helligkeit](#adaptive-helligkeit)
+- [Kommunikationsobjekte](#kommunikationsobjekte)
+- [Häufige Fehler und Lösungen](#häufige-fehler-und-lösungen)
 
 <!-- DOC -->
-### Lichtmanager Zuordnung
-
-Ordnet den Kanal einem Lichtmanager (1..8) zu.
-Bei `Kein Lichtmanager` arbeitet der Kanal ohne automatische Sollwert-Übernahme.
-
-
-<!-- DOC -->
-## Lichtmanager
-
-
-<!-- DOC -->
-### Human Centric Lighting
+## Human Centric Lighting
 
 Aktiviert zeitabhängige Sollwerte für Helligkeit und Farbtemperatur.
-Bis zu 8 Lichtmanager können parallel definiert werden.
+Bis zu 16 Lichtmanager können parallel definiert werden.
 
-<!-- DOC -->
+<!-- DOC HelpContext="Lichtmanager" -->
+### Lichtmanager
+
+Bis zu 16 unabhängige Lichtmanager berechnen Helligkeits- und Farbtemperatur-Sollwerte über den Tagesverlauf.
+Jeder Lichtmanager besitzt eine eigene Kurvenkonfiguration, optionale Saison-Profile und optionale adaptive Helligkeitsregelung.
+<!-- DOCEND -->
+
+<!-- DOC HelpContext="Lichtmanager-Auswahl" -->
 ### Lichtmanager Auswahl
 
-Legt die Anzahl sichtbarer Lichtmanager-Seiten (1..8) fest.
+Legt die Anzahl sichtbarer Lichtmanager-Seiten (1..16) fest.
 Nur die hier aktivierten Lichtmanager werden als eigene ETS-Reiter eingeblendet.
+<!-- DOCEND -->
 
+<!-- DOC -->
+### Einstellungen
+
+- **Aktualisierungsintervall (Sekunden)**
+- **Überblendzeit (Sekunden)**
+
+Sollwerte werden aus der Lichtmanager-Kurve berechnet und bei Wertänderung als Status-KO übertragen.
+
+<!-- DOC -->
+### Sperre (global)
+
+Sperrt die automatische Ausgabe aller Lichtmanager.
+
+### Sperr-Hierarchie
+
+Die Sperren werden mit folgender Priorität ausgewertet:
+
+```text
+Kanal-Sperre
+	> Manager-Sperre
+		> Globale Sperre
+```
+
+Eine aktive Kanal-Sperre übersteuert also immer die managerbezogene und die globale Sperre. Das ist gewollt, damit einzelne Kanäle nach einer Szene oder einem Sonderbetrieb gezielt aus der HCL-Führung herausgenommen werden können, ohne andere Kanäle desselben Lichtmanagers zu beeinflussen.
+
+<!-- DOC HelpContext="HCL-Sperre-global" -->
+Sperrt die automatische Ausgabe aller Lichtmanager (HCL-Bereich).
+
+Optionen:
+- **Rückfallzeit nach Sperre** (inkl. Tageswechsel, `kein Rückfall` möglich)
+- **Rückfallstrategie nach Sperre**: wirkt für globale, manager-spezifische und kanal-spezifische Sperren
+
+KOs:
+- `Sperre (global)` (Eingang)
+- `Status Sperre` (Ausgang)
+<!-- DOCEND -->
 
 <!-- DOC HelpContext="HCL-Sperre-global-Status-HCL-Sperre" -->
 Globale HCL-Sperre inkl. Statusrückmeldung.
@@ -99,13 +127,13 @@ Aktiviert pro Manager die Ausgabe:
 
 Hinweise:
 - Die Ausgabe erfolgt zyklisch gemäß **Aktualisierungsintervall** des Lichtmanager-Bereichs.
-- Die KOs liefern die vom Lichtmanager berechneten Sollwerte, unabhängig davon, wie viele Kanäle diesem zugeordnet sind.
+- Die KOs liefern die vom Lichtmanager berechneten Sollwerte, unabhängig davon, wie viele Konsumenten diesem zugeordnet sind.
 
 <!-- DOC -->
-### Lichtmanager 1..8
+### Lichtmanager 1..16
 
 <!-- DOC HelpContext="HCL-Manager-18" -->
-Jeder Lichtmanager 1..8 besitzt identischen Aufbau (HCL-Konfiguration):
+Jeder Lichtmanager 1..16 besitzt identischen Aufbau (HCL-Konfiguration):
 
 - **Bezeichnung**: Freie ETS-Bezeichnung des Lichtmanagers.
 - **Lichtmanager Sperre (spezifisch)**: Sperrt nur den jeweiligen Manager.
@@ -122,7 +150,7 @@ Freie ETS-Bezeichnung des Lichtmanagers.
 
 #### Lichtmanager Sperre (spezifisch)
 Sperrt nur den jeweiligen Lichtmanager.
-Alle Hue-Kanäle, die diesem Lichtmanager zugeordnet sind, erhalten während der Sperre keine automatischen Sollwerte mehr.
+Alle Konsumenten-Kanäle, die diesem Lichtmanager zugeordnet sind, erhalten während der Sperre keine automatischen Sollwerte mehr.
 
 Optionen je Manager:
 - **Rückfallzeit nach Sperre**
@@ -178,13 +206,13 @@ Beispiel:
 Praxisregel:
 - `Aktualisierungsintervall`, `Überblendzeit` und `Slew-Rate` gemeinsam abstimmen, damit Übergänge ruhig bleiben.
 
-#### Saison-Profil
+### Saison-Profil
 
 Das Saison-Profil ermöglicht es, für jeden Lichtmanager zwei voneinander unabhängige Stützpunkt-Sätze zu hinterlegen: einen für **Sommer** und einen für **Winter**. Der Lichtmanager wechselt automatisch oder auf KNX-Befehl zwischen den beiden Profilen.
 
 **Hintergrund**: Im Sommer steht die Sonne bei Sonnenuntergang (z. B. 19:00 Uhr) noch hoch, der Himmel ist hell und das Auge nimmt warmes Licht als „zu gelb" wahr. Im Winter hingegen ist die Dämmerung um dieselbe Uhrzeit längst abgeschlossen — warmes Licht fühlt sich natürlicher an. Mit dem Saison-Profil können beide Situationen optimal parametriert werden, ohne zwei separate Lichtmanager anlegen zu müssen.
 
-##### Saison-Modus
+#### Saison-Modus
 
 Der Parameter **Saison-Modus** legt fest, wie der Wechsel zwischen Sommer- und Winter-Stützpunkten ausgelöst wird:
 
@@ -193,11 +221,11 @@ Der Parameter **Saison-Modus** legt fest, wie der Wechsel zwischen Sommer- und W
 | **Standard** | Immer Winter-Stützpunkte aktiv. Sommer-Stützpunkte werden ignoriert. |
 | **Auto-DST** | Automatischer Wechsel anhand der mitteleuropäischen Sommerzeit (MESZ). Sommer = letzter Sonntag März bis letzter Sonntag Oktober. Kein ETS-Eingriff nötig. |
 | **Festes Datum** | Sommer gilt zwischen zwei konfigurierbaren Daten (Tag+Monat). Ermöglicht individuelle Anpassung an lokale Verhältnisse oder persönliche Präferenzen. |
-| **Per Objekt** | Das KNX-Kommunikationsobjekt **LM x: Sommer aktiv** steuert den Wechsel. Ermöglicht externe Steuerung z. B. über einen Kalender-Aktor oder eine Logik. |
+| **Per Objekt** | Das KNX-Kommunikationsobjekt **LM x: Sommer aktiv** steuert den Wechsel. Der Zustand wird im Flash persistiert und bleibt nach Neuprogrammierung erhalten. |
 
 Bei Modus **Standard** sind keine Sommer-Stützpunkte erforderlich; die Spalten werden in ETS ausgeblendet.
 
-##### Parameter bei Modus „Festes Datum"
+#### Parameter bei Modus „Festes Datum"
 
 - **Sommer Start (Tag)** / **Sommer Start (Monat)**: Beginn des Sommerprofils (inklusiv).
 - **Sommer Ende (Tag)** / **Sommer Ende (Monat)**: Ende des Sommerprofils (inklusiv).
@@ -205,7 +233,7 @@ Bei Modus **Standard** sind keine Sommer-Stützpunkte erforderlich; die Spalten 
 
 Beispiel: Start `01.04.`, Ende `31.10.` entspricht grob der MESZ — identisch mit Auto-DST, aber manuell justierbar.
 
-##### Sommer-Stützpunkte
+#### Sommer-Stützpunkte
 
 Bei aktivem Saison-Modus (nicht `Standard`) erscheint in ETS für jeden Stützpunkt eine zweite Spalte:
 
@@ -221,7 +249,7 @@ Hinweise:
 - Nicht alle Stützpunkte müssen einen Sommer-Wert haben. Stützpunkte mit deaktiviertem **Sommer Aktiv** werden im Sommer-Profil übersprungen.
 - Im Sommer-Profil müssen mindestens 2 aktive Stützpunkte vorhanden sein (bei Kurventyp `FixedTime` oder `SunPosition`), sonst fällt der Manager auf das Winter-Profil zurück.
 
-##### KO: LM x: Sommer aktiv (nur Modus „Per Objekt")
+#### KO: LM x: Sommer aktiv (nur Modus „Per Objekt")
 
 <!-- DOC HelpContext="HCL-Saison-KO" -->
 Kommunikationsobjekt **LM x: Sommer aktiv** (Eingang, 1 Bit, DPT 1.001).
@@ -231,10 +259,12 @@ Nur sichtbar wenn der Saison-Modus des Lichtmanagers auf **Per Objekt** eingeste
 - Wert `1` = Sommer-Stützpunkte aktiv
 - Wert `0` = Winter-Stützpunkte aktiv (Standard)
 
+Der zuletzt empfangene Zustand wird im Flash gespeichert und nach einem Neustart bzw. nach einer Neuprogrammierung automatisch wiederhergestellt.
+
 Bei den anderen Saison-Modi (Standard, Auto-DST, Festes Datum) wechselt der Manager automatisch; dieses KO ist dann nicht sichtbar.
 <!-- DOCEND -->
 
-#### Adaptive Helligkeit
+### Adaptive Helligkeit
 
 <!-- DOC HelpContext="HCL-Adaptive-Helligkeit" -->
 Passt die Soll-Helligkeit automatisch an das Umgebungslicht an. Voraussetzung ist ein Helligkeitssensor, der seinen Messwert per KO sendet.
@@ -245,7 +275,7 @@ Verfügbare Modi:
 - **Konstantlichtregelung (Closed-Loop)**: Vergleicht den Sensorwert fortlaufend mit dem HCL-Sollwert und korrigiert die Leuchten laufend nach bis beide übereinstimmen. Geeignet wenn eine sehr genaue Beleuchtungsstärke erforderlich ist (z. B. Arbeitsplatz nach DIN EN 12464).
 <!-- DOCEND -->
 
-##### Adaptive Helligkeit (Modus)
+#### Adaptive Helligkeit (Modus)
 
 <!-- DOC HelpContext="HCL-Adaptive-Modus" -->
 Wählt den Betriebsmodus der adaptiven Helligkeitsregelung:
@@ -255,7 +285,7 @@ Wählt den Betriebsmodus der adaptiven Helligkeitsregelung:
 - **Konstantlichtregelung (Closed-Loop)**: Der Regler vergleicht den aktuellen Sensorwert laufend mit dem HCL-Sollwert und passt die Leuchten so lange nach, bis beide übereinstimmen. Im Gegensatz zu Open-Loop wird also nicht einmalig berechnet sondern fortlaufend korrigiert. Das ergibt eine präzisere Regelung, erfordert aber sorgfältige Parametrierung (Kp, Totband) damit der Regler nicht schwingt. Empfohlen für Bereiche mit genauer Beleuchtungsanforderung.
 <!-- DOCEND -->
 
-##### Aktivierung
+#### Aktivierung
 
 <!-- DOC HelpContext="HCL-Adaptive-Aktivierung" -->
 Steuert, wann die adaptive Regelung aktiv ist:
@@ -265,7 +295,7 @@ Steuert, wann die adaptive Regelung aktiv ist:
 - **Nach Uhrzeit**: Regelung ist nur innerhalb des konfigurierten Zeitfensters aktiv (Startzeit / Endzeit).
 <!-- DOCEND -->
 
-##### Tag/Nacht-Polarität
+#### Tag/Nacht-Polarität
 
 <!-- DOC HelpContext="HCL-Adaptive-Polaritaet" -->
 Legt fest, welcher KO-Wert „Tag" bedeutet. Nur sichtbar bei Aktivierung = „Nur tagsüber (per KO)".
@@ -276,7 +306,7 @@ Legt fest, welcher KO-Wert „Tag" bedeutet. Nur sichtbar bei Aktivierung = „N
 Passend zur Polarität des sendenden Gerätes einstellen (z. B. Präsenzmelder, Zeitschaltuhr, Logikbaustein).
 <!-- DOCEND -->
 
-##### Startzeit / Endzeit
+#### Startzeit / Endzeit
 
 <!-- DOC HelpContext="HCL-Adaptive-Zeitfenster" -->
 Definiert das Zeitfenster, in dem die adaptive Regelung aktiv ist. Nur sichtbar bei Aktivierung = „Nach Uhrzeit".
@@ -287,7 +317,7 @@ Definiert das Zeitfenster, in dem die adaptive Regelung aktiv ist. Nur sichtbar 
 Außerhalb des Zeitfensters ist die adaptive Regelung pausiert; der Lichtmanager folgt nur der HCL-Kurve.
 <!-- DOCEND -->
 
-##### Skalierungsmaximum
+#### Skalierungsmaximum
 
 <!-- DOC HelpContext="HCL-Adaptive-Skalierungsmaximum" -->
 Gibt den maximalen Lux-Wert des Sensors an, bei dem die Regelung vollständig ausgesteuert ist. Dieser Parameter muss auf den tatsächlichen Messbereich des verwendeten Sensors abgestimmt werden — er ist kein Raumtyp-Richtwert, sondern ein Sensor-Kennwert.
@@ -316,7 +346,7 @@ Korrekt wäre Skalierungsmaximum = 50.000 Lux, damit der Sensor seinen vollen Be
 - Außensensor / Dachsensor (bis 100.000 Lux): 20.000–65.000 Lux
 <!-- DOCEND -->
 
-##### Kompensationsstärke
+#### Kompensationsstärke
 
 <!-- DOC HelpContext="HCL-Adaptive-Staerke" -->
 *(Nur bei Tageslicht-Kompensation, Open-Loop)*
@@ -329,7 +359,7 @@ Prozentualer Anteil, mit dem die Helligkeitsreduktion auf den HCL-Sollwert angew
 Bei 0 % ist die Regelung wirkungslos; in dem Fall stattdessen Modus „Aus" verwenden.
 <!-- DOCEND -->
 
-##### Auf HCL-Wert begrenzen
+#### Auf HCL-Wert begrenzen
 
 <!-- DOC HelpContext="HCL-Adaptive-CeilToHCL" -->
 *(Nur bei Konstantlichtregelung, Closed-Loop)*
@@ -340,7 +370,7 @@ Bei 0 % ist die Regelung wirkungslos; in dem Fall stattdessen Modus „Aus" verw
 Empfehlung: **Ja**, um ungewolltes Aufhellen bei schlechten Lichtverhältnissen zu verhindern.
 <!-- DOCEND -->
 
-##### P-Faktor (Kp)
+#### P-Faktor (Kp)
 
 <!-- DOC HelpContext="HCL-Adaptive-Kp" -->
 *(Nur bei Konstantlichtregelung, Closed-Loop)*
@@ -355,7 +385,7 @@ Proportionalverstärkung des Reglers. Höhere Werte reagieren schneller, können
 Empfehlung: Mit `1.0` beginnen und bei Bedarf anpassen.
 <!-- DOCEND -->
 
-##### Totband
+#### Totband
 
 <!-- DOC HelpContext="HCL-Adaptive-Totband" -->
 *(Nur bei Konstantlichtregelung, Closed-Loop)*
@@ -365,7 +395,7 @@ Minimale Abweichung in Lux zwischen Soll- und Istwert, ab der der Regler eingrei
 Empfehlung: 30–80 Lux je nach Sensorgenauigkeit. Bei sehr empfindlichen Sensoren eher höher wählen.
 <!-- DOCEND -->
 
-##### Mindesthelligkeit
+#### Mindesthelligkeit
 
 <!-- DOC HelpContext="HCL-Adaptive-Mindesthelligkeit" -->
 Untergrenze der Helligkeitsreduktion durch die adaptive Regelung. Die Helligkeit wird nie unter diesen Wert gesenkt, auch wenn das Umgebungslicht das Skalierungsmaximum überschreitet.
@@ -373,7 +403,7 @@ Untergrenze der Helligkeitsreduktion durch die adaptive Regelung. Die Helligkeit
 Verhindert, dass der Raum bei sehr hellem Tageslicht vollständig dunkel geregelt wird.
 <!-- DOCEND -->
 
-##### Sensor-Timeout (0=aus)
+#### Sensor-Timeout (0=aus)
 
 <!-- DOC HelpContext="HCL-Adaptive-Timeout" -->
 Maximale Zeit in Minuten ohne neuen Lux-Messwert, bevor der Sensor als ausgefallen gilt und die adaptive Regelung pausiert wird. Nach Ablauf folgt der Lichtmanager wieder nur der HCL-Kurve.
@@ -382,7 +412,7 @@ Maximale Zeit in Minuten ohne neuen Lux-Messwert, bevor der Sensor als ausgefall
 - Empfehlung: 5–15 Minuten, abhängig vom Sendeintervall des Sensors.
 <!-- DOCEND -->
 
-##### Mindestschrittgröße
+#### Mindestschrittgröße
 
 <!-- DOC HelpContext="HCL-Adaptive-Mindestschritt" -->
 Minimale Helligkeitsänderung in Prozent, die der Regler tatsächlich ausführen muss. Berechnete Korrekturen unterhalb dieses Schwellwerts werden ignoriert.
@@ -390,7 +420,7 @@ Minimale Helligkeitsänderung in Prozent, die der Regler tatsächlich ausführen
 Verhindert Flackern bei sehr kleinen, rauschbedingten Korrekturen. Empfehlung: 1–3 %.
 <!-- DOCEND -->
 
-##### Kommunikationsobjekte der adaptiven Regelung
+#### Kommunikationsobjekte der adaptiven Regelung
 
 <!-- DOC HelpContext="HCL-Adaptive-KOs" -->
 Kommunikationsobjekte für die adaptive Helligkeit je Lichtmanager:
@@ -403,133 +433,63 @@ Das KO „Tag/Nacht" ist nur sichtbar, wenn Aktivierung = „Nur tagsüber (per 
 Das KO „Adaptive Helligkeit aktiv" meldet, ob die Regelung gerade eingreift (z. B. für Logiken oder Visualisierung).
 <!-- DOCEND -->
 
-### Lichtmanager-Konfiguration übertragen (ConfigTransfer)
-
-Für wiederkehrende HCL-Szenarien kann die Modul-Basiskonfiguration über das OpenKNX ConfigTransfer-Modul importiert werden. Die folgenden Beispiele aktivieren den Lichtmanager global und schreiben ein Profil in **Lichtmanager 1**.
-
-Vorgehen:
-
-1. Im ConfigTransfer-Modul als Ziel das Hue-Modul wählen.
-2. Import-Ziel auf **Modul-Basiskonfiguration** setzen.
-3. Den gewünschten String in das Feld **Transfer-String** einfügen.
-4. Import ausführen.
-5. Anschließend die gewünschten Hue-Kanäle auf **Lichtmanager 1** zuordnen.
-
-#### Büro-Profil
-
-```text
-OpenKNX,cv1,*/HUE/0§HUEHCLEnable=1§HUEHCLMasterCount=1§HCLM1Name=Buero§HCLM1CurveType=0§HCLM1SetpointCount=5§HCLM1SP0Time=06%3A00§HCLM1SP0Kelvin=5000§HCLM1SP0Brightness=40§HCLM1SP1Time=09%3A00§HCLM1SP1Kelvin=4600§HCLM1SP1Brightness=70§HCLM1SP2Time=12%3A00§HCLM1SP2Kelvin=4500§HCLM1SP2Brightness=85§HCLM1SP3Time=17%3A00§HCLM1SP3Kelvin=3500§HCLM1SP3Brightness=55§HCLM1SP4Time=20%3A30§HCLM1SP4Kelvin=3000§HCLM1SP4Brightness=25§;OpenKNX
-```
-
-#### Wohnzimmer-Profil
-
-```text
-OpenKNX,cv1,*/HUE/0§HUEHCLEnable=1§HUEHCLMasterCount=1§HCLM1Name=Wohnzimmer§HCLM1CurveType=0§HCLM1SetpointCount=4§HCLM1SP0Time=07%3A00§HCLM1SP0Kelvin=3000§HCLM1SP0Brightness=25§HCLM1SP1Time=12%3A00§HCLM1SP1Kelvin=3000§HCLM1SP1Brightness=45§HCLM1SP2Time=18%3A00§HCLM1SP2Kelvin=2400§HCLM1SP2Brightness=35§HCLM1SP3Time=22%3A30§HCLM1SP3Kelvin=2200§HCLM1SP3Brightness=15§;OpenKNX
-```
-
-#### Schlafzimmer-Profil
-
-```text
-OpenKNX,cv1,*/HUE/0§HUEHCLEnable=1§HUEHCLMasterCount=1§HCLM1Name=Schlafzimmer§HCLM1CurveType=0§HCLM1SlewRate=4§HCLM1SetpointCount=4§HCLM1SP0Time=06%3A30§HCLM1SP0Kelvin=2700§HCLM1SP0Brightness=20§HCLM1SP1Time=12%3A00§HCLM1SP1Kelvin=3500§HCLM1SP1Brightness=45§HCLM1SP2Time=19%3A30§HCLM1SP2Kelvin=2500§HCLM1SP2Brightness=25§HCLM1SP3Time=22%3A30§HCLM1SP3Kelvin=2200§HCLM1SP3Brightness=8§;OpenKNX
-```
-
-Hinweise:
-- Die Strings sind absichtlich kanalunabhängig für die Modul-Basiskonfiguration formuliert.
-- Bereits vorhandene Lichtmanager-Einstellungen in der Zielkonfiguration werden überschrieben.
-- Für zusätzliche Manager die Parameternamen entsprechend auf `HCLM2...`, `HCLM3...` usw. anpassen.
-
-## Performance-Empfehlungen
-
-Die Last auf Hue-Bridge und OpenKNX-Gerät steigt vor allem durch viele aktive Kanäle, kurze Polling-Intervalle und häufige Statusabfragen.
-
-Empfehlungen für typische Projekte:
-
-| Szenario | Kanalzahl | Polling | Empfehlung |
-|---|---|---|---|
-| Einzelraum mit wenigen Leuchten | 1-5 | `5..10 s` | `Bidirektional` für Bedienkomfort |
-| Mehrere Räume/Zonen | 6-15 | `10..20 s` | Räume/Zonen nur dort nutzen, wo Sammelstatus ausreicht |
-| Große Installation | >15 | `15..30 s` | Nur wirklich benötigte Kanäle und Status-KOs aktivieren |
-
-Faustregeln:
-- Nicht benötigte Kanäle deaktivieren.
-- Status-KOs nur einblenden, wenn sie im KNX-Projekt wirklich verwendet werden.
-- Räume/Zonen bevorzugen, wenn nicht jede Einzelleuchte separat benötigt wird.
-- Bei vielen HCL-Kanälen `Aktualisierungsintervall` und `Überblendzeit` konservativ wählen.
-
 <!-- DOC -->
 ## Kommunikationsobjekte
 
 ### Globale Kommunikationsobjekte
 
-<!-- DOC -->
-#### Bridge Verbindungsstatus
-
-Optionales 1-Bit Statusobjekt (0=offline, 1=online).
-
-<!-- DOC -->
-#### Pairing Trigger
-
-1-Bit Triggerobjekt für ETS-gestützte Pairing-Auslösung.
-
-<!-- DOC -->
 #### Sperre (global) / Status Sperre
-
 Globale Sperre inkl. Statusrückmeldung.
 
-<!-- DOC -->
 #### Entsperren Trigger
-
 1-Bit Triggerobjekt zum gleichzeitigen Aufheben aller globalen, manager-spezifischen und kanal-spezifischen Sperren.
 
-<!-- DOC -->
-#### Sperre Lichtmanager 1..8 / Status
-
+#### Sperre Lichtmanager 1..16 / Status
 Lichtmanager-spezifische Sperrobjekte inkl. Statusrückmeldung.
 Sichtbarkeit abhängig von der konfigurierten Anzahl Lichtmanager.
 
-<!-- DOC -->
 #### Lichtmanager Status Helligkeit Soll / Farbtemperatur Soll
-
 Je Lichtmanager zwei Sollwert-KOs; Sichtbarkeit abhängig von Option **Status-KOs je Lichtmanager**.
 
-### Pro-Kanal Kommunikationsobjekte
+### Pro-Lichtmanager Kommunikationsobjekte
 
+#### LM x: Sommer aktiv
+1-Bit Eingang (DPT 1.001). Nur sichtbar bei Saison-Modus **Per Objekt**. Zustand wird im Flash persistiert.
 
-<!-- DOC -->
-## Projektierungsbeispiele
+#### Helligkeitssensor (Lux)
+2-Byte Eingang (DPT 9.004). Eingang für die adaptive Helligkeitsregelung.
 
-### Beispiel 3: Lichtmanager im Arbeitszimmer
-- Lampentyp: Farbtemperatur
-- Lichtmanager: 1
-- Intervall Lichtmanager: 60 s
-- Sperre Lichtmanager 1 via KO auf GA für Präsenz/Abwesenheit
+#### Tag/Nacht
+1-Bit Eingang (DPT 1.001). Nur sichtbar bei Aktivierung der adaptiven Regelung = „Nur tagsüber (per KO)".
 
-### Beispiel 6: Lichtmanager mit Saison-Profil (Auto-DST)
-- Lampentyp: Farbtemperatur
-- Lichtmanager: 1
-- Saison-Modus: Auto-DST
-- Winter-Stützpunkte: SP1 `06:30 / 3000K / 30%`, SP2 `12:00 / 5000K / 80%`, SP3 `19:00 / 2700K / 60%`, SP4 `22:00 / 2200K / 20%`
-- Sommer-Stützpunkte (SP1–SP4 jeweils Sommer Aktiv = Ja): SP1 `06:30 / 4000K / 40%`, SP2 `12:00 / 5500K / 90%`, SP3 `19:00 / 3800K / 70%`, SP4 `22:00 / 2700K / 25%`
-- Hinweis: Im Sommer ist SP3 um 19 Uhr deutlich kühler (3800K statt 2700K), weil das Umgebungslicht noch hell ist.
-
-### Beispiel 7: Saison-Umschaltung per KNX-Logik (Modus „Per Objekt")
-- Saison-Modus: Per Objekt
-- KO `LM 1: Sommer aktiv` mit Ausgang einer Logik verbinden, die aus Datum/Uhrzeit den Sommer erkennt
-- Oder: KO an einen Taster hängen, der manuell zwischen Sommer/Winter umschaltet
-- Vorteil: Vollständige externe Kontrolle; z. B. auch Zwischensaison-Profile möglich
+#### Adaptive Helligkeit aktiv
+1-Bit Ausgang (DPT 1.011). Status der adaptiven Regelung.
 
 <!-- DOC -->
 ## Häufige Fehler und Lösungen
 
 ### Lichtmanager-Parameter oder HCL-KOs fehlen
 - Lichtmanager global aktiviert?
-- Kanal ist wirklich ein CT- oder RGB-Kanal?
+- Anzahl Lichtmanager in **Lichtmanager Auswahl** ausreichend?
 - Erst nach Aktivierung des globalen Lichtmanagers werden Zuordnung und Sperrparameter sichtbar.
 
 ### Lichtmanager wirkt nicht
 - Lichtmanager global aktiviert?
-- Manager zugewiesen?
+- Manager im Konsumenten-Modul zugewiesen?
 - Bei `FixedTime`/`SunPosition`: mind. 2 gültige Stützpunkte?
 - Bei `Manual`: gewünschte manuelle Farbtemperatur gesetzt und optionaler Helligkeitsverlauf passend parametriert?
 - Bei `Astronomischer Sonnenstand`: sinnvolle Astro-Min/Max-Werte gesetzt?
 - Globale/spezifische Sperre aktiv?
+
+### Saison-Profil schaltet nicht um
+- Saison-Modus ist `Standard`? → dann sind Sommer-Stützpunkte absichtlich deaktiviert.
+- Bei Modus `Festes Datum`: Start- und Ende-Datum korrekt eingetragen? Datum liegt im aktiven Bereich?
+- Bei Modus `Auto-DST`: Systemzeit korrekt? DST-Erkennung setzt korrekte Uhrzeit voraus.
+- Bei Modus `Per Objekt`: KO `LM x: Sommer aktiv` mit GA verbunden und Wert `1` gesendet?
+- Im Sommer-Profil mindestens 2 Stützpunkte mit **Sommer Aktiv = Ja** vorhanden (bei `FixedTime`/`SunPosition`)?
+
+<!-- DOC -->
+## Lizenz und Haftung
+
+Open-Source-Modul im OpenKNX-Umfeld.
+Keine Gewährleistung; Nutzung in eigener Verantwortung.
