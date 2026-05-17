@@ -4,4 +4,4 @@ OpenKNX Funktionsmodul zur Lichtsteuerung
 
 ## Status
 
-**Alpha**
+**Work-In-Progress** (Extraktion und Generalisierung aus OFM-HueGateway)
