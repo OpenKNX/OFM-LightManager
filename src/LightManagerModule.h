@@ -9,7 +9,7 @@
 #include "ILightManagerOutput.h"
 #include "LightManagerChannel.h"
 
-class LightManagerModule : public OpenKNX::Module
+class LightManagerModule : public OpenKNX::Module, public HCL::IMasterProvider
 {
 public:
     enum class HclLockFallbackMode : uint8_t {
@@ -58,6 +58,15 @@ public:
     // Public API used by HueGatewayModule
     void setHclLock(bool active, const char* reason);
     void setHclManagerLock(uint8_t managerNumber, bool active, const char* reason);
+
+    // --- HCL::IMasterProvider implementation -------------------------------
+    uint8_t           providerMasterCount() const override { return static_cast<uint8_t>(_channels.size()); }
+    HCL::Master*      providerGetMaster(uint8_t masterNum) override;
+    HCL::InterpolatedValue providerGetCurrentValue(uint8_t masterNum) const override;
+    void              providerSetCurrentValue(uint8_t masterNum, const HCL::InterpolatedValue& value) override;
+    bool              providerIsMasterApplyBlocked(uint8_t masterNum) const override;
+    void              providerSetMasterApplyBlocked(uint8_t masterNum, bool blocked) override;
+    bool              providerIsMasterAdaptiveActive(uint8_t masterNum, uint16_t currentTimeMinutes, uint32_t nowMs) const override;
 
 private:
     struct OutputRegistration {
