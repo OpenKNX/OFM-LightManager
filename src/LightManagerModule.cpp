@@ -4,6 +4,15 @@
 namespace
 {
 
+bool tryGetLocalTime(tm& timeinfo)
+{
+    if (!openknx.time.isValid())
+        return false;
+
+    openknx.time.getLocalTime().toTm(timeinfo);
+    return true;
+}
+
 int16_t decodeBaseTimezoneOffsetMinutes(uint8_t timezoneRaw)
 {
     if (timezoneRaw == 31) return 60;
@@ -85,7 +94,7 @@ void LightManagerModule::setup()
 void LightManagerModule::loop()
 {
     struct tm timeinfo;
-    const bool hasTime = getLocalTime(&timeinfo, 0);
+    const bool hasTime = tryGetLocalTime(timeinfo);
     uint16_t timeMinutes = 0;
     int16_t dayOfYear = -1;
     if (hasTime)
@@ -98,7 +107,7 @@ void LightManagerModule::loop()
         ch->loopHcl(hasTime ? &timeinfo : nullptr, hasTime);
 
     // Skip HCL value recalculation when no valid time is available; otherwise
-    // a momentary getLocalTime()==false would feed timeMinutes=0/dayOfYear=-1
+    // a momentary tryGetLocalTime()==false would feed timeMinutes=0/dayOfYear=-1
     // into the master and cause the published value to jump to the SP1 setpoint.
     if (hasTime)
         HCL::masterManager.loop(timeMinutes, dayOfYear);
@@ -237,7 +246,7 @@ void LightManagerModule::setHclLock(bool active, const char* reason)
         }
 
         struct tm timeinfo;
-        if (getLocalTime(&timeinfo, 0))
+        if (tryGetLocalTime(timeinfo))
         {
             _hclLockActivationDayOfYear = static_cast<int16_t>(timeinfo.tm_yday);
             _hclLockActivationMinuteOfDay = static_cast<int16_t>(timeinfo.tm_hour * 60 + timeinfo.tm_min);
