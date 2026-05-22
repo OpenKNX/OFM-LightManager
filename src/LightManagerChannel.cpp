@@ -1,17 +1,9 @@
 #include "LightManagerChannel.h"
+#include "LightManagerUtil.h"
 #include "knxprod.h"
 
 namespace
 {
-
-bool tryGetLocalTime(tm& timeinfo)
-{
-    if (!openknx.time.isValid())
-        return false;
-
-    openknx.time.getLocalTime().toTm(timeinfo);
-    return true;
-}
 
 bool isDateInSummerRange(uint8_t month, uint8_t day,
                          uint8_t startMonth, uint8_t startDay,
@@ -342,7 +334,7 @@ void LightManagerChannel::setLock(bool active, const char* reason)
         }
 
         struct tm timeinfo;
-        if (tryGetLocalTime(timeinfo))
+        if (LightManagerUtil::tryGetLocalTime(timeinfo))
         {
             _lockActivationDayOfYear   = static_cast<int16_t>(timeinfo.tm_yday);
             _lockActivationMinuteOfDay = static_cast<int16_t>(timeinfo.tm_hour * 60 + timeinfo.tm_min);

@@ -1,17 +1,9 @@
 #include "LightManagerModule.h"
+#include "LightManagerUtil.h"
 #include "knxprod.h"
 
 namespace
 {
-
-bool tryGetLocalTime(tm& timeinfo)
-{
-    if (!openknx.time.isValid())
-        return false;
-
-    openknx.time.getLocalTime().toTm(timeinfo);
-    return true;
-}
 
 int16_t decodeBaseTimezoneOffsetMinutes(uint8_t timezoneRaw)
 {
@@ -94,7 +86,7 @@ void LightManagerModule::setup()
 void LightManagerModule::loop()
 {
     struct tm timeinfo;
-    const bool hasTime = tryGetLocalTime(timeinfo);
+    const bool hasTime = LightManagerUtil::tryGetLocalTime(timeinfo);
     uint16_t timeMinutes = 0;
     int16_t dayOfYear = -1;
     if (hasTime)
@@ -246,7 +238,7 @@ void LightManagerModule::setHclLock(bool active, const char* reason)
         }
 
         struct tm timeinfo;
-        if (tryGetLocalTime(timeinfo))
+        if (LightManagerUtil::tryGetLocalTime(timeinfo))
         {
             _hclLockActivationDayOfYear = static_cast<int16_t>(timeinfo.tm_yday);
             _hclLockActivationMinuteOfDay = static_cast<int16_t>(timeinfo.tm_hour * 60 + timeinfo.tm_min);
