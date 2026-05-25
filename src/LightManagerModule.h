@@ -55,6 +55,20 @@ public:
     void unregisterOutput(ILightManagerOutput* target);
     void notifyOutputActive(uint8_t masterNum, bool active);
 
+    // Per-channel timing accessors (1-based masterNum; 0 = invalid).
+    uint16_t channelUpdateIntervalSec(uint8_t masterNum) const;
+    uint8_t  channelFadeDurationSec(uint8_t masterNum) const;
+
+    // Phase 2.J.c.2: expose channel pointer for diagnostics (HueGatewayModule).
+    LightManagerChannel* channel(uint8_t masterNum) {
+        return (masterNum >= 1 && masterNum <= _channels.size())
+            ? _channels[masterNum - 1].get() : nullptr;
+    }
+    const LightManagerChannel* channel(uint8_t masterNum) const {
+        return (masterNum >= 1 && masterNum <= _channels.size())
+            ? _channels[masterNum - 1].get() : nullptr;
+    }
+
     // Public API used by HueGatewayModule
     void setHclLock(bool active, const char* reason);
     void setHclManagerLock(uint8_t managerNumber, bool active, const char* reason);
@@ -73,6 +87,9 @@ private:
         uint8_t masterNum;
         ILightManagerOutput* target;
     };
+
+    // Punkt 5: Init-Pfad fuer SummerActive bei Magic-Mismatch / SavePower=Nein.
+    void applySummerActiveInit();
 
     std::vector<OutputRegistration> _outputs;
     std::vector<std::unique_ptr<LightManagerChannel>> _channels;

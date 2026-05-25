@@ -38,8 +38,7 @@ void LightManagerModule::setup()
     // Register ourselves as IMasterProvider so the facade can look up channel-hosted masters.
     HCL::masterManager.setProvider(this);
     HCL::masterManager.setEnabled(enabled);
-    HCL::masterManager.setUpdateInterval(ParamLMG_LMGHCLUpdateInterval);
-    HCL::masterManager.setFadeDuration(ParamLMG_LMGHCLFadeDuration);
+    // (UpdateInterval / FadeDuration are now per-channel — see LightManagerChannel::setupHcl.)
 
     // Global lock fallback parameters
     _hclLockFallbackMode = ParamLMG_LMGHCLLockFallback;
@@ -107,21 +106,7 @@ void LightManagerModule::loop()
     evaluateHclLockFallback(hasTime ? &timeinfo : nullptr, hasTime);
 
     for (auto& ch : _channels)
-    {
         ch->pushIfChanged();
-
-        // Also push to registered ILightManagerOutput sinks (Hue etc.)
-        const uint8_t mn = ch->masterNumber();
-        const bool blocked = HCL::masterManager.isApplyBlocked() || ch->applyBlocked();
-        if (blocked) continue;
-        const HCL::InterpolatedValue val = ch->currentValue();
-        const uint8_t fade = HCL::masterManager.getFadeDuration();
-        for (auto& reg : _outputs)
-        {
-            if (reg.masterNum == mn && reg.target != nullptr)
-                reg.target->onLightManagerValue(mn, val.kelvin, val.brightness, fade);
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -167,6 +152,18 @@ bool LightManagerModule::processCommand(const std::string /*cmd*/, bool /*diagno
 // Output registration
 // ---------------------------------------------------------------------------
 
+uint16_t LightManagerModule::channelUpdateIntervalSec(uint8_t masterNum) const
+{
+    if (masterNum < 1 || masterNum > _channels.size()) return 0;
+    return _channels[masterNum - 1]->updateIntervalSec();
+}
+
+uint8_t LightManagerModule::channelFadeDurationSec(uint8_t masterNum) const
+{
+    if (masterNum < 1 || masterNum > _channels.size()) return 0;
+    return _channels[masterNum - 1]->fadeDurationSec();
+}
+
 void LightManagerModule::registerOutput(uint8_t masterNum, ILightManagerOutput* target)
 {
     if (masterNum < 1 || masterNum > HCL::MasterManager::MAX_MASTERS || target == nullptr)
@@ -183,10 +180,10 @@ void LightManagerModule::registerOutput(uint8_t masterNum, ILightManagerOutput* 
     if (masterNum > _channels.size()) return;
     LightManagerChannel* ch = _channels[masterNum - 1].get();
     const bool blocked = HCL::masterManager.isApplyBlocked() || ch->applyBlocked();
-    if (!blocked)
+    if (!blocked && ch->internalOutputEnabled())
     {
         const HCL::InterpolatedValue val = ch->currentValue();
-        const uint8_t fade = HCL::masterManager.getFadeDuration();
+        const uint8_t fade = ch->fadeDurationSec();
         target->onLightManagerValue(masterNum, val.kelvin, val.brightness, fade);
     }
 }
@@ -352,12 +349,24 @@ bool LightManagerModule::shouldReleaseByPolicyTime(int16_t activationDayOfYear, 
 // 0x02: channel-owner layout (state lives in LightManagerChannel; bit i =
 //       channel i = master i+1). Identical byte layout but bumped so older
 //       firmwares' flash is cleanly discarded on first read.
-static constexpr uint8_t LMG_SUMMER_FLASH_VERSION = 0x02;
+// 0x03: Punkt 5 (Plan Phase 2 Step 4a, NVS-Magic 0x03). SavePower-Gate beim
+//       Schreiben/Lesen; bei deaktivierter SavePower wird der Slot ignoriert
+//       und SummerActiveInit angewandt.
+static constexpr uint8_t LMG_SUMMER_FLASH_VERSION = 0x03;
 
 uint16_t LightManagerModule::flashSize() { return 3; }
 
 void LightManagerModule::writeFlash()
 {
+    // Punkt 5: nur wenn Master-Param SavePower=Ja persistiert wird.
+    if (!ParamLMG_LMGSummerActiveSavePower)
+    {
+        // Magic ungueltig schreiben, damit naechster Boot Init-Pfad nimmt.
+        openknx.flash.writeByte(0x00);
+        openknx.flash.writeByte(0x00);
+        openknx.flash.writeByte(0x00);
+        return;
+    }
     uint16_t mask = 0;
     for (auto& ch : _channels)
     {
@@ -371,9 +380,20 @@ void LightManagerModule::writeFlash()
 
 void LightManagerModule::readFlash(const uint8_t* /*data*/, const uint16_t size)
 {
-    if (size < 3) return;
+    // Punkt 5: SavePower=Nein → Slot ignorieren, SummerActiveInit anwenden.
+    if (!ParamLMG_LMGSummerActiveSavePower)
+    {
+        applySummerActiveInit();
+        return;
+    }
+    if (size < 3) { applySummerActiveInit(); return; }
     const uint8_t version = openknx.flash.readByte();
-    if (version != LMG_SUMMER_FLASH_VERSION) return;
+    if (version != LMG_SUMMER_FLASH_VERSION)
+    {
+        // Magic-Mismatch → Init-Pfad. Slot wird beim naechsten writeFlash neu geschrieben.
+        applySummerActiveInit();
+        return;
+    }
 
     const uint8_t hi = openknx.flash.readByte();
     const uint8_t lo = openknx.flash.readByte();
@@ -381,6 +401,25 @@ void LightManagerModule::readFlash(const uint8_t* /*data*/, const uint16_t size)
 
     for (auto& ch : _channels)
         ch->restoreSummerFromMask(mask);
+}
+
+void LightManagerModule::applySummerActiveInit()
+{
+    // Plan Phase 2 Step 4a: Init beim Boot wenn kein NVS-Restore.
+    const uint8_t init = ParamLMG_LMGSummerActiveInit;
+    for (auto& ch : _channels)
+    {
+        HCL::Master* m = ch->masterPtr();
+        if (!m) continue;
+        switch (static_cast<HCL::SummerActiveInit>(init))
+        {
+            case HCL::SummerActiveInit::Winter:      m->setIsSummer(false); break;
+            case HCL::SummerActiveInit::Summer:      m->setIsSummer(true);  break;
+            case HCL::SummerActiveInit::ReadFromBus: /* TODO: send read request */ break;
+            case HCL::SummerActiveInit::Nothing:
+            default:                                 /* unchanged (Default false) */ break;
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
