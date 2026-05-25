@@ -86,14 +86,7 @@ public:
     /** Last calculated time-of-day in minutes (or 0xFFFF before first loop). */
     uint16_t getLastTimeMinutes() const { return _lastTimeMinutes; }
 
-    void setUpdateInterval(uint16_t seconds) { _updateIntervalMs = static_cast<uint32_t>(seconds) * 1000UL; }
-    uint16_t getUpdateInterval() const { return static_cast<uint16_t>(_updateIntervalMs / 1000UL); }
-
-    void setFadeDuration(uint8_t seconds) { _fadeDurationSec = seconds; }
-    uint8_t getFadeDuration() const { return _fadeDurationSec; }
-
     void forceUpdate();
-    uint32_t getTimeUntilNextUpdate() const;
 
     // --- Adaptive Helligkeit (delegating to master via provider) ---
     void setMasterAmbientLux(uint8_t masterNum, float lux);
@@ -104,9 +97,6 @@ private:
     IMasterProvider* _provider = nullptr;
     bool _enabled;
     bool _applyBlocked;
-    uint32_t _updateIntervalMs;
-    uint8_t _fadeDurationSec;
-    uint32_t _lastUpdateMs;
     uint16_t _lastTimeMinutes;
     int16_t _lastDayOfYear;
 
