@@ -1,6 +1,6 @@
 {
     "name": "OFM-LightManagerModule",
-    "version": "0.1.0",
+    "version": "0.3.0",
     "description": "Light Manager module for OpenKNX — HCL (Human Centric Lighting) engine, decoupled from Hue gateway",
     "homepage": "https://openknx.de",
     "authors": {
