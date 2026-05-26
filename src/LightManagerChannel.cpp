@@ -381,12 +381,15 @@ void LightManagerChannel::pushIfChanged()
 
     // External KO emission is controlled by per-channel ETS parameters (Variante E):
     //   IntegrationMode: 0=Intern, 1=Extern, 2=Intern&Extern
-    //   BusStatusEnable (bool): explicit gate for all bus status output
+    //   BusStatusEnable (bool): explicit gate for Intern / Intern+Extern modes
     //   StatusKoOutput: 0=1B+2B, 1=1B only, 2=2B only, 3=6B combi, 4=all parallel
+    // Note: for Extern (mode==1), BusStatusEnable is hidden in ETS and always 0;
+    // the ETS template unconditionally shows the status KOs for Extern mode because
+    // sending to the bus IS the purpose of Extern mode. busOn only gates Intern-derived modes.
     const uint8_t mode    = ParamLMG_CHIntegrationMode;
     const bool    busOn   = ParamLMG_CHBusStatusEnable;
     const uint8_t output  = ParamLMG_CHStatusKoOutput;
-    const bool    externAllowed = busOn && (mode == 1 || mode == 2);
+    const bool    externAllowed = (mode == 1) || busOn;
 
     if (externAllowed)
     {
