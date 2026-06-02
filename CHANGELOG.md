@@ -2,9 +2,13 @@
 
 Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
+## Geplantes folgendes Release [0.3.1]
+
+
 ## [0.3.0] - 2026-05-22 — HCL-Profil-Release
 
 > **Breaking:** Das HCL-Datenmodell wurde komplett auf ProfileV2 umgestellt. ETS-Projekte aus 0.2.x sind nicht migrationsfähig; HCL-Konfiguration je Lichtmanager muss neu projektiert werden.
+ 
 > **Breaking (KO-Block):** `LMG_KoBlockSize` wächst von 12 auf **22** je Kanal (+10 KOs). Alle Module mit nachgelagerten KO-Offsets (insb. OFM-HueGatewayModule) müssen ihre Offsets entsprechend anpassen.
 
 ### Hinzugefügt
