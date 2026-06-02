@@ -1,9 +1,6 @@
 #include "LightManagerModule.h"
 #include "LightManagerUtil.h"
 #include "knxprod.h"
-#if __has_include("versions.h")
-#include "versions.h"
-#endif
 
 namespace
 {
@@ -25,11 +22,7 @@ LightManagerModule::LightManagerModule() = default;
 const std::string LightManagerModule::name()    { return "LightManager"; }
 const std::string LightManagerModule::version()
 {
-#ifdef MODULE_LightManagerModule_Version
     return MODULE_LightManagerModule_Version;
-#else
-    return "0.3.0";
-#endif
 }
 
 // ---------------------------------------------------------------------------
