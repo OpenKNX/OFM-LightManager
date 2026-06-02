@@ -4,6 +4,7 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 
 ## Geplantes folgendes Release [0.3.1]
 
+* fix(channel): always allow bus output in Extern integration mode regardless of BusStatusEnable
 
 ## [0.3.0] - 2026-05-22 — HCL-Profil-Release
 
