@@ -597,14 +597,20 @@
                     <ComObjectRefRef RefId="%AID%_O-%TT%00037_R-%TT%0003701" />
                     <ParameterRefRef RefId="%AID%_P-%TT%00042_R-%TT%0004201" IndentLevel="1" HelpContext="LMG-HCL-Sperre-global" />
                     <choose ParamRefId="%AID%_P-%TT%00042_R-%TT%0004201">
-                      <when test="2">
+                      <when test="0">
+                        <ParameterRefRef RefId="%AID%_P-%TT%00014_R-%TT%0001401" IndentLevel="2" HelpContext="LMG-HCL-Sperre-global" />
+                      </when>
+                      <when test="1">
                         <ParameterRefRef RefId="%AID%_P-%TT%00043_R-%TT%0004301" IndentLevel="2" HelpContext="LMG-HCL-Sperre-global" />
                       </when>
+                      <when test="2">
+                        <ParameterRefRef RefId="%AID%_P-%TT%00044_R-%TT%0004401" IndentLevel="2" HelpContext="LMG-HCL-Sperre-global" />
+                      </when>
                       <when test="3">
+                        <ParameterRefRef RefId="%AID%_P-%TT%00043_R-%TT%0004301" IndentLevel="2" HelpContext="LMG-HCL-Sperre-global" />
                         <ParameterRefRef RefId="%AID%_P-%TT%00044_R-%TT%0004401" IndentLevel="2" HelpContext="LMG-HCL-Sperre-global" />
                       </when>
                     </choose>
-                    <ParameterRefRef RefId="%AID%_P-%TT%00014_R-%TT%0001401" IndentLevel="1" HelpContext="LMG-HCL-Sperre-global" />
 
                     <ParameterSeparator Id="%AID%_PS-LMGSummerLine" Text="" UIHint="HorizontalRuler" />
                     <ParameterSeparator Id="%AID%_PS-LMGSummerHead" Text="Saisonale Umschaltung (global)" UIHint="Headline" />

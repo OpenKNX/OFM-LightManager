@@ -5,6 +5,7 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 ## Geplantes folgendes Release [0.3.1]
 
 * fix(channel): always allow bus output in Extern integration mode regardless of BusStatusEnable
+* fix(ets): Im globalen Block „Lichtmanager Sperre (global)" waren die Sichtbarkeitsregeln der Rückfallstrategie gegenüber dem Enum um eins verschoben — „Freie Uhrzeit" blendete das Sekundenfeld (`LMGHCLFallbackDurationSec`) statt des Uhrzeit-Pickers ein, „Dauer oder Uhrzeit" zeigte keine Dauer, für „Freie Dauer" fehlte die Regel ganz und „Rückfallzeit nach Sperre" (`LMGHCLLockFallback`) stand außerhalb des `choose` und war dadurch immer sichtbar. Der Block ist jetzt deckungsgleich mit dem korrekten Kanal-Block. Die Firmware-Auswertung war nie betroffen.
 
 ## [0.3.0] - 2026-05-22 — HCL-Profil-Release
 
