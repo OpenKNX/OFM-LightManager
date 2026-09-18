@@ -23,7 +23,7 @@ Das Modul übernimmt die Berechnung der HCL-Sollwerte:
 ## Inhaltsverzeichnis
 
 - [Human Centric Lighting](#human-centric-lighting)
-- [Lichtmanager Auswahl](#lichtmanager-auswahl)
+- [Kanalauswahl](#kanalauswahl)
 - [Einstellungen](#einstellungen)
 - [Sperre (global)](#sperre-global)
 - [Rückfallstrategie nach Sperre](#rückfallstrategie-nach-sperre)
@@ -42,6 +42,7 @@ Das Modul übernimmt die Berechnung der HCL-Sollwerte:
 - [Per-Kanal-Sperre (F2)](#per-kanal-sperre-f2)
 - [Rückfallstrategie nach Per-Kanal-Sperre](#rückfallstrategie-nach-per-kanal-sperre)
 - [Externe Eingänge (F12)](#externe-eingänge-f12)
+- [Migration auf 0.4.0](#migration-auf-040)
 - [Migration auf 0.3.0](#migration-auf-030)
 - [Häufige Fehler und Lösungen](#häufige-fehler-und-lösungen)
 
@@ -58,11 +59,18 @@ Bis zu N unabhängige Lichtmanager (Anzahl per OAM vorgegeben) berechnen Helligk
 Jeder Lichtmanager besitzt eine eigene Kurvenkonfiguration, optionale Saison-Profile und optionale adaptive Helligkeitsregelung.
 <!-- DOCEND -->
 
-<!-- DOC HelpContext="Lichtmanager-Auswahl" -->
-### Lichtmanager Auswahl
+<!-- DOC -->
+### Kanalauswahl
 
-Legt die Anzahl sichtbarer Lichtmanager-Seiten (1..N, max. durch OAM vorgegeben) fest.
-Nur die hier aktivierten Lichtmanager werden als eigene ETS-Reiter eingeblendet.
+Bei aktiviertem Lichtmanager erscheint unter „Allgemein" der Tab **Kanalauswahl**. Er enthält je Lichtmanager eine Zeile mit den Spalten **Kanal**, **Kanalaktivität** und **Beschreibung**.
+Nur aktivierte Lichtmanager erscheinen als eigener Tab „LM x" im Baum und werden in der Firmware ausgeführt. Die Beschreibung kann auch bei deaktivierten Lichtmanagern eingetragen werden.
+
+<!-- DOC HelpContext="Kanalaktivitaet" -->
+#### Kanalaktivität
+
+Schaltet den Lichtmanager ein (**Aktiviert**) oder aus (**Deaktiviert**).
+Ein deaktivierter Lichtmanager wird im Baum ausgeblendet, liefert keine Sollwerte und kann in Konsumenten-Modulen (z. B. OFM-HueGatewayModule) nicht zugeordnet werden. Seine Einstellungen bleiben erhalten.
+Zum vorübergehenden Abschalten ohne Ausblenden dient **Suspendiert** im Kanalkopf.
 <!-- DOCEND -->
 
 <!-- DOC -->
@@ -248,7 +256,8 @@ Die Maskierung `0x07` bedeutet: Validity-Bit für Übergangszeit (b2), Farbtempe
 <!-- DOC HelpContext="HCL-Manager-18" -->
 Jeder Lichtmanager 1..N besitzt identischen Aufbau (HCL-Konfiguration):
 
-- **Bezeichnung**: Freie ETS-Bezeichnung des Lichtmanagers.
+- **Beschreibung**: Freie ETS-Bezeichnung des Lichtmanagers (auch in der Kanalauswahl editierbar).
+- **Suspendiert**: Der Lichtmanager bleibt projektiert, wird aber nicht ausgeführt.
 - **Lichtmanager Sperre (spezifisch)**: Sperrt nur den jeweiligen Manager.
 - **Erweiterte Kurve**: Kurventyp `FixedTime`, `SunPosition`, `Manual` oder `Astronomischer Sonnenstand`.
 - **Stützpunkte**: Bis zu 10 Stützpunkte je Manager (bei `FixedTime` oder `SunPosition`).
@@ -258,8 +267,11 @@ Jeder Lichtmanager 1..N besitzt identischen Aufbau (HCL-Konfiguration):
 
 Jeder Manager besitzt identischen Aufbau:
 
-#### Bezeichnung
-Freie ETS-Bezeichnung des Lichtmanagers.
+#### Beschreibung
+Freie ETS-Bezeichnung des Lichtmanagers. Sie erscheint im Tab-Namen und in den KO-Texten.
+
+#### Suspendiert
+Der Lichtmanager bleibt projektiert und sichtbar, wird aber von der Firmware nicht ausgeführt (keine Sollwerte, keine KOs). Im Baum wird er als suspendiert markiert.
 
 #### Lichtmanager Sperre (spezifisch)
 Sperrt nur den jeweiligen Lichtmanager.
@@ -564,7 +576,7 @@ Globale Sperre inkl. Statusrückmeldung.
 
 #### Sperre Lichtmanager 1..N / Status
 Lichtmanager-spezifische Sperrobjekte inkl. Statusrückmeldung.
-Sichtbarkeit abhängig von der konfigurierten Anzahl Lichtmanager.
+Sichtbar nur für Lichtmanager, die in der **Kanalauswahl** aktiviert sind.
 
 #### Lichtmanager Status Helligkeit Soll / Farbtemperatur Soll
 Je Lichtmanager zwei Sollwert-KOs; Sichtbarkeit abhängig von Option **Status-KOs je Lichtmanager**.
@@ -765,6 +777,13 @@ Per-Kanal überschreib- oder fallback-bare Werte aus externen Quellen:
 Per-SP **ExtColorTempMode** + **ExtMixPercent** erlauben gezieltes Mischen (z. B. „abends nur einbeziehen wenn externer Wert kleiner ist"). Mix-Formel: `(interp * (100 − mix) + extK * mix) / 100`.
 <!-- DOCEND -->
 
+## Migration auf 0.4.0
+
+> **Breaking — Kanalauswahl.** Der Parameter „Verfügbare Kanäle" entfällt. Nach dem ETS-Update sind **alle Lichtmanager deaktiviert** und müssen im Tab **Kanalauswahl** wieder aktiviert werden. Die Einstellungen der einzelnen Lichtmanager bleiben erhalten.
+
+- Konsumenten-Module (z. B. OFM-HueGatewayModule ab 0.8.0) prüfen die Zuordnung zur Laufzeit: Ein zugeordneter, aber deaktivierter oder suspendierter Lichtmanager wird ignoriert und im Log gemeldet.
+- API: `getMasterCount()` liefert die höchste mögliche Master-Nummer; ob ein Lichtmanager existiert, zeigt `channel(n) != nullptr` bzw. `getMaster(n) != nullptr`.
+
 <!-- DOC HelpContext="Migration-0.3.0" -->
 ## Migration auf 0.3.0
 
@@ -790,12 +809,13 @@ Per-SP **ExtColorTempMode** + **ExtMixPercent** erlauben gezieltes Mischen (z. B
 
 ### Lichtmanager-Parameter oder HCL-KOs fehlen
 - Lichtmanager global aktiviert?
-- Anzahl Lichtmanager in **Lichtmanager Auswahl** ausreichend?
+- Lichtmanager in der **Kanalauswahl** aktiviert?
 - Erst nach Aktivierung des globalen Lichtmanagers werden Zuordnung und Sperrparameter sichtbar.
 
 ### Lichtmanager wirkt nicht
 - Lichtmanager global aktiviert?
 - Manager im Konsumenten-Modul zugewiesen?
+- Manager in der **Kanalauswahl** aktiviert und nicht **Suspendiert**?
 - Bei `FixedTime`/`SunPosition`: mind. 2 gültige Stützpunkte?
 - Bei `Manual`: gewünschte manuelle Farbtemperatur gesetzt und optionaler Helligkeitsverlauf passend parametriert?
 - Bei `Astronomischer Sonnenstand`: sinnvolle Astro-Min/Max-Werte gesetzt?

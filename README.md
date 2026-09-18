@@ -112,7 +112,8 @@ Per-Kanal getrennte Slew-Raten für Tag und Nacht mit interner Astro-Quelle oder
 ### Wert eines Masters lesen (Pull)
 
 ```cpp
-uint8_t count = HCL::masterManager.getMasterCount();
+// Nur in der Kanalauswahl aktivierte Master existieren (sonst nullptr)
+if (HCL::masterManager.getMaster(masterNum) == nullptr) return;
 HCL::Value val = HCL::masterManager.getCurrentValue(masterNum); // masterNum: 1-based
 // val.kelvin, val.brightness (0-100)
 ```
@@ -145,7 +146,7 @@ Weitere Details: [doc/integration.md](doc/integration.md)
 
 ## ETS-Konfiguration
 
-- Bis zu N Lichtmanager konfigurierbar (Anzahl im OAM vorgeben)
+- Bis zu N Lichtmanager (Anzahl im OAM vorgegeben), einzeln aktivierbar im Tab **Kanalauswahl**; je Lichtmanager Beschreibung und „Suspendiert"
 - Stützpunkte SP0–SP9 (Winter + Sommer) mit Uhrzeit, Helligkeit (%) und Farbtemperatur (K)
 - Astronomische Parameter: Sonnenaufgang-/Sonnenuntergang-Offset (min), Helligkeit/CT Min/Max
 - Suffix-Anzeige in ETS: `%`, `K`, `K/min`, `lx`, `min`
