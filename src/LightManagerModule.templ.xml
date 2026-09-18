@@ -60,9 +60,19 @@
               <Parameter Id="%AID%_P-%TT%%CC%023" Name="CH%C%LockFallback" ParameterType="%AID%_PT-LMGHCLLockFallback" Text="Rückfallzeit nach Sperre" Value="0">
                 <Memory CodeSegment="%MID%" Offset="192" BitOffset="0" />
               </Parameter>
-              <Parameter Id="%AID%_P-%TT%%CC%025" Name="CH%C%Name" ParameterType="%AID%_PT-LMGHCLMasterName" Text="Name Lichtmanager %C%" Value="">
+              <Parameter Id="%AID%_P-%TT%%CC%025" Name="CH%C%Name" ParameterType="%AID%_PT-LMGHCLMasterName" Text="Beschreibung" Value="">
                 <Memory CodeSegment="%MID%" Offset="0" BitOffset="0" />
               </Parameter>
+              <!-- Byte 25: Kanalaktivität (Kanalauswahl) und Suspendiert (Kanalkopf) -->
+              <Union SizeInBit="8">
+                <Memory CodeSegment="%MID%" Offset="25" BitOffset="0" />
+                <!-- Kanalaktivität: 0 = Deaktiviert, 1 = Aktiviert -->
+                <Parameter Id="%AID%_UP-%TT%%CC%026" Name="CH%C%Active" ParameterType="%AID%_PT-LMGChannelActive" Offset="0" BitOffset="0" Text="Kanalaktivität" Value="0" />
+                <!-- Suspendiert: Kanal bleibt projektiert, wird aber nicht ausgeführt -->
+                <Parameter Id="%AID%_UP-%TT%%CC%027" Name="CH%C%Disabled" ParameterType="%AID%_PT-Suspended" Offset="0" BitOffset="1" Text="Suspendiert" Value="0" />
+              </Union>
+              <!-- Beschreibung für die Baumanzeige (markiert suspendierte Kanäle) -->
+              <Parameter Id="%AID%_P-%TT%%CC%028" Name="CH%C%NameDisplay" ParameterType="%AID%_PT-Text45Byte" Text="Beschreibung (Anzeige)" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%%CC%089" Name="CH%C%IntegrationMode" ParameterType="%AID%_PT-LMGIntegrationMode" Text="Bereitstellung der Lichtmanager-Sollwerte" Value="2">
                 <Memory CodeSegment="%MID%" Offset="201" BitOffset="0" />
               </Parameter>
@@ -1826,6 +1836,9 @@
               <ParameterRef Id="%AID%_P-%TT%%CC%022_R-%TT%%CC%02201" RefId="%AID%_P-%TT%%CC%022" />
               <ParameterRef Id="%AID%_P-%TT%%CC%023_R-%TT%%CC%02301" RefId="%AID%_P-%TT%%CC%023" />
               <ParameterRef Id="%AID%_P-%TT%%CC%025_R-%TT%%CC%02501" RefId="%AID%_P-%TT%%CC%025" />
+              <ParameterRef Id="%AID%_UP-%TT%%CC%026_R-%TT%%CC%02601" RefId="%AID%_UP-%TT%%CC%026" />
+              <ParameterRef Id="%AID%_UP-%TT%%CC%027_R-%TT%%CC%02701" RefId="%AID%_UP-%TT%%CC%027" />
+              <ParameterRef Id="%AID%_P-%TT%%CC%028_R-%TT%%CC%02801" RefId="%AID%_P-%TT%%CC%028" />
               <ParameterRef Id="%AID%_P-%TT%%CC%089_R-%TT%%CC%08901" RefId="%AID%_P-%TT%%CC%089" />
               <ParameterRef Id="%AID%_P-%TT%%CC%094_R-%TT%%CC%09401" RefId="%AID%_P-%TT%%CC%094" />
               <ParameterRef Id="%AID%_P-%TT%%CC%096_R-%TT%%CC%09601" RefId="%AID%_P-%TT%%CC%096" />
@@ -2404,6 +2417,18 @@
               <ParameterRef Id="%AID%_P-%TT%%CC%800_R-%TT%%CC%80001" RefId="%AID%_P-%TT%%CC%800" />
 
             </ParameterRefs>
+            <ParameterCalculations>
+              <!-- Suspendierte Kanäle im Baum markieren -->
+              <ParameterCalculation Id="%AID%_PC-%TT%%CC%0111" Language="JavaScript" Name="MarkInactive%CC%" RLTransformationFunc="BASE_MarkInactiveChannel" RLTransformationParameters="{&quot;InactiveValue&quot;:1}" LRTransformationFunc="BASE_Nop">
+                <LParameters>
+                  <ParameterRefRef RefId="%AID%_P-%TT%%CC%028_R-%TT%%CC%02801" AliasName="TextOutput" />
+                </LParameters>
+                <RParameters>
+                  <ParameterRefRef RefId="%AID%_P-%TT%%CC%025_R-%TT%%CC%02501" AliasName="TextInput" />
+                  <ParameterRefRef RefId="%AID%_UP-%TT%%CC%027_R-%TT%%CC%02701" AliasName="InactiveControl" />
+                </RParameters>
+              </ParameterCalculation>
+            </ParameterCalculations>
             <ComObjectTable>
               <ComObject Id="%AID%_O-%TT%%CC%000" Number="%K00%" Name="CH%C%StatusBrightness" Text="LM %C%: Status-Soll-Helligkeit" FunctionText="LM %C%: Ausgang, Prozent" ObjectSize="1 Byte" ReadFlag="Enabled" WriteFlag="Disabled" CommunicationFlag="Enabled" TransmitFlag="Enabled" UpdateFlag="Enabled" ReadOnInitFlag="Disabled" DatapointType="DPST-5-1" />
               <ComObject Id="%AID%_O-%TT%%CC%001" Number="%K01%" Name="CH%C%StatusColorTemp" Text="LM %C%: Status-Soll-Farbtemperatur" FunctionText="LM %C%: Ausgang, Farbtemperatur" ObjectSize="2 Bytes" ReadFlag="Enabled" WriteFlag="Disabled" CommunicationFlag="Enabled" TransmitFlag="Enabled" UpdateFlag="Enabled" ReadOnInitFlag="Disabled" DatapointType="DPST-7-600" />
@@ -2456,9 +2481,27 @@
           </Static>
           <Dynamic>
             <ChannelIndependentBlock>
-              <choose ParamRefId="%AID%_P-%TT%00011_R-%TT%0001101">
-                <when test="&gt;=%C%">
-                                      <ParameterBlock Id="%AID%_PB-CH%CC%" Name="CH%C%" Text="LM %C%: {{0: ...}}" TextParameterRefId="%AID%_P-%TT%%CC%025_R-%TT%%CC%02501" HelpContext="LMG-HCL-Manager-18">
+              <!-- Zeile der Kanalauswahl-Tabelle (eine einzeilige Tabelle je Kanal) -->
+              <ParameterBlock Id="%AID%_PB-%TT%%CC%CS" Name="Settings">
+                <ParameterBlock Id="%AID%_PB-%TT%%CC%CSRow" Inline="true" Layout="Grid">
+                  <Rows>
+                    <Row Id="%AID%_PB-%TT%%CC%CSRow_R-1" />
+                  </Rows>
+                  <Columns>
+                    <Column Id="%AID%_PB-%TT%%CC%CSRow_C-1" Width="10%" />
+                    <Column Id="%AID%_PB-%TT%%CC%CSRow_C-2" Width="35%" />
+                    <Column Id="%AID%_PB-%TT%%CC%CSRow_C-3" Width="55%" />
+                  </Columns>
+                  <ParameterSeparator Id="%AID%_PS-%TT%%CC%CSRow" Cell="1,1" Text="LM %C%" />
+                  <ParameterRefRef RefId="%AID%_UP-%TT%%CC%026_R-%TT%%CC%02601" Cell="1,2" HelpContext="LMG-Kanalaktivitaet" />
+                  <ParameterRefRef RefId="%AID%_P-%TT%%CC%025_R-%TT%%CC%02501" Cell="1,3" HelpContext="BASE-ChannelName" />
+                </ParameterBlock>
+              </ParameterBlock>
+
+              <ParameterBlock Id="%AID%_PB-%TT%%CC%CD" Name="Channel">
+              <choose ParamRefId="%AID%_UP-%TT%%CC%026_R-%TT%%CC%02601">
+                <when test="1">
+                                      <ParameterBlock Id="%AID%_PB-CH%CC%" Name="CH%C%" Text="LM %C%: {{0: ...}}" TextParameterRefId="%AID%_P-%TT%%CC%028_R-%TT%%CC%02801" Icon="table-clock" ShowInComObjectTree="true" HelpContext="LMG-HCL-Manager-18">
                                         <!-- ============================================================ -->
                                         <!-- 0.3.0 Sub-Pages: S1Allg wurde in Top-Level promoted.          -->
                                         <!-- KO-Wrapping bleibt eingebettet:                              -->
@@ -2469,7 +2512,10 @@
                                         <!-- ============================================================ -->
                                           <!-- Sektion 1: Kanaldefinition -->
                                           <ParameterSeparator Id="%AID%_PS-CH%CC%S1Def" Text="Kanaldefinition" UIHint="Headline" />
-                                          <ParameterRefRef RefId="%AID%_P-%TT%%CC%025_R-%TT%%CC%02501" />
+                                          <!-- Beschreibung -->
+                                          <ParameterRefRef RefId="%AID%_P-%TT%%CC%025_R-%TT%%CC%02501" IndentLevel="1" HelpContext="BASE-ChannelName" />
+                                          <!-- Suspendiert -->
+                                          <ParameterRefRef RefId="%AID%_UP-%TT%%CC%027_R-%TT%%CC%02701" IndentLevel="1" HelpContext="BASE-ChannelSuspended" />
 
                                           <!-- Sektion 2: HCL-Ausgang (Variante E) -->
                                           <ParameterSeparator Id="%AID%_PS-CH%CC%S2OutLine" Text="" UIHint="HorizontalRuler" />
@@ -4787,12 +4833,7 @@
                                       </ParameterBlock>
                                     </when>
                                   </choose>
-                                  
-                                  <!-- Reiter Lichtmanager 2 -->
-                                  <choose ParamRefId="%AID%_P-%TT%00011_R-%TT%0001101">
-                                    <when test="&gt;=2">
-                </when>
-              </choose>
+                                                </ParameterBlock>
             </ChannelIndependentBlock>
           </Dynamic>
         </ApplicationProgram>
