@@ -2,8 +2,16 @@
 
 Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
-## Geplantes folgendes Release [0.3.1]
+## Geplantes folgendes Release [0.4.0]
 
+> **Breaking (Kanalauswahl):** Die Lichtmanager werden nicht mehr über „Verfügbare Kanäle" freigeschaltet, sondern einzeln im neuen Tab **Kanalauswahl**. Nach dem ETS-Update sind alle Lichtmanager deaktiviert und müssen dort wieder aktiviert werden; die Einstellungen der Kanäle bleiben erhalten.
+
+> **Breaking (API):** `getMasterCount()` / `providerMasterCount()` liefern jetzt die höchste mögliche Master-Nummer (16) statt der Anzahl. Nicht aktivierte oder suspendierte Lichtmanager existieren zur Laufzeit nicht: `channel(n)` bzw. `getMaster(n)` liefern `nullptr`. Consumer-Module müssen die Zuordnung darüber prüfen (OFM-HueGatewayModule ab 0.8.0).
+
+* feat(ets): Kanalauswahl nach OpenKNX-Standard — eigener Tab „Kanalauswahl" unter „Allgemein" mit einer Zeile je Lichtmanager (Kanal, Kanalaktivität Deaktiviert/Aktiviert, Beschreibung). Nur aktivierte Lichtmanager erscheinen im Baum. Der Regler „Verfügbare Kanäle" entfällt (bleibt als versteckte Konstante erhalten).
+* feat(ets): Neuer Parameter „Suspendiert" im Kanalkopf — der Lichtmanager bleibt projektiert, wird aber nicht ausgeführt; im Baum wird er markiert.
+* feat(ets): Der Freitext „Name Lichtmanager" heißt jetzt „Beschreibung" (Parameter und Speicher unverändert).
+* feat(channel): Die Firmware legt nur aktivierte, nicht suspendierte Lichtmanager an; neue Methoden `channelConfigured()` und `activeChannelCount()`.
 * fix(channel): always allow bus output in Extern integration mode regardless of BusStatusEnable
 * fix(ets): Im globalen Block „Lichtmanager Sperre (global)" waren die Sichtbarkeitsregeln der Rückfallstrategie gegenüber dem Enum um eins verschoben — „Freie Uhrzeit" blendete das Sekundenfeld (`LMGHCLFallbackDurationSec`) statt des Uhrzeit-Pickers ein, „Dauer oder Uhrzeit" zeigte keine Dauer, für „Freie Dauer" fehlte die Regel ganz und „Rückfallzeit nach Sperre" (`LMGHCLLockFallback`) stand außerhalb des `choose` und war dadurch immer sichtbar. Der Block ist jetzt deckungsgleich mit dem korrekten Kanal-Block. Die Firmware-Auswertung war nie betroffen.
 
