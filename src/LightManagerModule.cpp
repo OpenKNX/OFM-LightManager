@@ -34,9 +34,6 @@ void LightManagerModule::setup()
     setHclLock(false, "setup");
 
     const bool enabled = (ParamLMG_LMGHCLEnable != 0);
-    const uint8_t requested = enabled ? ParamLMG_LMGHCLMasterCount : 0;
-    const uint8_t count = (requested > HCL::MasterManager::MAX_MASTERS)
-                            ? HCL::MasterManager::MAX_MASTERS : requested;
 
     // Register ourselves as IMasterProvider so the facade can look up channel-hosted masters.
     HCL::masterManager.setProvider(this);
@@ -68,14 +65,13 @@ void LightManagerModule::setup()
     timezoneOffsetMinutes = decodeBaseTimezoneOffsetMinutes(static_cast<uint8_t>(ParamBASE_Timezone));
 #endif
 
-    // Create channels and configure their HCL master
-    _channels.clear();
-    _channels.reserve(count);
-    for (uint8_t i = 0; i < count; i++)
+    // Create only the activated, not suspended channels and configure their HCL master
+    for (uint8_t i = 0; i < HCL::MasterManager::MAX_MASTERS; i++)
     {
-        auto ch = std::unique_ptr<LightManagerChannel>(new LightManagerChannel(i));
-        ch->setupHcl(latitude, longitude, timezoneOffsetMinutes);
-        _channels.push_back(std::move(ch));
+        _channels[i].reset();
+        if (!enabled || !channelConfigured(i)) continue;
+        _channels[i].reset(new LightManagerChannel(i));
+        _channels[i]->setupHcl(latitude, longitude, timezoneOffsetMinutes);
     }
 
     HCL::masterManager.setup();
@@ -98,7 +94,7 @@ void LightManagerModule::loop()
     }
 
     for (auto& ch : _channels)
-        ch->loopHcl(hasTime ? &timeinfo : nullptr, hasTime);
+        if (ch) ch->loopHcl(hasTime ? &timeinfo : nullptr, hasTime);
 
     // Skip HCL value recalculation when no valid time is available; otherwise
     // a momentary tryGetLocalTime()==false would feed timeMinutes=0/dayOfYear=-1
@@ -109,7 +105,7 @@ void LightManagerModule::loop()
     evaluateHclLockFallback(hasTime ? &timeinfo : nullptr, hasTime);
 
     for (auto& ch : _channels)
-        ch->pushIfChanged();
+        if (ch) ch->pushIfChanged();
 }
 
 // ---------------------------------------------------------------------------
@@ -132,14 +128,14 @@ void LightManagerModule::processInputKo(GroupObject& ko)
         {
             setHclLock(false, "KO release trigger");
             for (auto& ch : _channels)
-                ch->setLock(false, "KO release trigger");
+                if (ch) ch->setLock(false, "KO release trigger");
         }
         return;
     }
 
     const int16_t chIdx = LMG_KoCalcChannel(koNumber);
     if (chIdx < 0) return;
-    if (chIdx >= static_cast<int16_t>(_channels.size())) return;
+    if (chIdx >= HCL::MasterManager::MAX_MASTERS || !_channels[chIdx]) return;
 
     // LMG_KoCalcIndex() expands to _channelIndex (channel-scope macro) — compute manually here.
     const uint16_t koIdx = static_cast<uint16_t>((koNumber - LMG_KoBlockOffset) % LMG_KoBlockSize);
@@ -157,14 +153,29 @@ bool LightManagerModule::processCommand(const std::string /*cmd*/, bool /*diagno
 
 uint16_t LightManagerModule::channelUpdateIntervalSec(uint8_t masterNum) const
 {
-    if (masterNum < 1 || masterNum > _channels.size()) return 0;
-    return _channels[masterNum - 1]->updateIntervalSec();
+    const LightManagerChannel* ch = channel(masterNum);
+    return ch ? ch->updateIntervalSec() : 0;
 }
 
 uint8_t LightManagerModule::channelFadeDurationSec(uint8_t masterNum) const
 {
-    if (masterNum < 1 || masterNum > _channels.size()) return 0;
-    return _channels[masterNum - 1]->fadeDurationSec();
+    const LightManagerChannel* ch = channel(masterNum);
+    return ch ? ch->fadeDurationSec() : 0;
+}
+
+bool LightManagerModule::channelConfigured(uint8_t channelIndex) const
+{
+    if (channelIndex >= HCL::MasterManager::MAX_MASTERS) return false;
+    uint8_t _channelIndex = channelIndex;
+    return ParamLMG_CHActive && !ParamLMG_CHDisabled;
+}
+
+uint8_t LightManagerModule::activeChannelCount() const
+{
+    uint8_t count = 0;
+    for (const auto& ch : _channels)
+        if (ch) count++;
+    return count;
 }
 
 void LightManagerModule::registerOutput(uint8_t masterNum, ILightManagerOutput* target)
@@ -180,8 +191,8 @@ void LightManagerModule::registerOutput(uint8_t masterNum, ILightManagerOutput* 
 
     _outputs.push_back({masterNum, target});
 
-    if (masterNum > _channels.size()) return;
-    LightManagerChannel* ch = _channels[masterNum - 1].get();
+    LightManagerChannel* ch = channel(masterNum);
+    if (!ch) return;
     const bool blocked = HCL::masterManager.isApplyBlocked() || ch->applyBlocked();
     if (!blocked && ch->internalOutputEnabled())
     {
@@ -203,9 +214,10 @@ void LightManagerModule::unregisterOutput(ILightManagerOutput* target)
 
 void LightManagerModule::notifyOutputActive(uint8_t masterNum, bool active)
 {
-    if (masterNum < 1 || masterNum > _channels.size()) return;
+    LightManagerChannel* ch = channel(masterNum);
+    if (!ch) return;
     if (!active)
-        _channels[masterNum - 1]->setApplyBlocked(false);
+        ch->setApplyBlocked(false);
 }
 
 // ---------------------------------------------------------------------------
@@ -261,8 +273,9 @@ void LightManagerModule::setHclLock(bool active, const char* reason)
 
 void LightManagerModule::setHclManagerLock(uint8_t managerNumber, bool active, const char* reason)
 {
-    if (managerNumber < 1 || managerNumber > _channels.size()) return;
-    _channels[managerNumber - 1]->setLock(active, reason);
+    LightManagerChannel* ch = channel(managerNumber);
+    if (!ch) return;
+    ch->setLock(active, reason);
 }
 
 void LightManagerModule::publishHclLockStatus()
@@ -373,7 +386,7 @@ void LightManagerModule::writeFlash()
     uint16_t mask = 0;
     for (auto& ch : _channels)
     {
-        if (ch->isSummer())
+        if (ch && ch->isSummer())
             mask |= static_cast<uint16_t>(1u << (ch->masterNumber() - 1));
     }
     openknx.flash.writeByte(LMG_SUMMER_FLASH_VERSION);
@@ -403,7 +416,7 @@ void LightManagerModule::readFlash(const uint8_t* /*data*/, const uint16_t size)
     const uint16_t mask = (static_cast<uint16_t>(hi) << 8) | lo;
 
     for (auto& ch : _channels)
-        ch->restoreSummerFromMask(mask);
+        if (ch) ch->restoreSummerFromMask(mask);
 }
 
 void LightManagerModule::applySummerActiveInit()
@@ -412,6 +425,7 @@ void LightManagerModule::applySummerActiveInit()
     const uint8_t init = ParamLMG_LMGSummerActiveInit;
     for (auto& ch : _channels)
     {
+        if (!ch) continue;
         HCL::Master* m = ch->masterPtr();
         if (!m) continue;
         switch (static_cast<HCL::SummerActiveInit>(init))
@@ -431,36 +445,36 @@ void LightManagerModule::applySummerActiveInit()
 
 HCL::Master* LightManagerModule::providerGetMaster(uint8_t masterNum)
 {
-    if (masterNum < 1 || masterNum > _channels.size()) return nullptr;
-    return _channels[masterNum - 1]->masterPtr();
+    LightManagerChannel* ch = channel(masterNum);
+    return ch ? ch->masterPtr() : nullptr;
 }
 
 HCL::InterpolatedValue LightManagerModule::providerGetCurrentValue(uint8_t masterNum) const
 {
-    if (masterNum < 1 || masterNum > _channels.size()) return HCL::InterpolatedValue{};
-    return _channels[masterNum - 1]->currentValue();
+    const LightManagerChannel* ch = channel(masterNum);
+    return ch ? ch->currentValue() : HCL::InterpolatedValue{};
 }
 
 void LightManagerModule::providerSetCurrentValue(uint8_t masterNum, const HCL::InterpolatedValue& value)
 {
-    if (masterNum < 1 || masterNum > _channels.size()) return;
-    _channels[masterNum - 1]->setCurrentValue(value);
+    LightManagerChannel* ch = channel(masterNum);
+    if (ch) ch->setCurrentValue(value);
 }
 
 bool LightManagerModule::providerIsMasterApplyBlocked(uint8_t masterNum) const
 {
-    if (masterNum < 1 || masterNum > _channels.size()) return false;
-    return _channels[masterNum - 1]->applyBlocked();
+    const LightManagerChannel* ch = channel(masterNum);
+    return ch ? ch->applyBlocked() : false;
 }
 
 void LightManagerModule::providerSetMasterApplyBlocked(uint8_t masterNum, bool blocked)
 {
-    if (masterNum < 1 || masterNum > _channels.size()) return;
-    _channels[masterNum - 1]->setApplyBlocked(blocked);
+    LightManagerChannel* ch = channel(masterNum);
+    if (ch) ch->setApplyBlocked(blocked);
 }
 
 bool LightManagerModule::providerIsMasterAdaptiveActive(uint8_t masterNum, uint16_t currentTimeMinutes, uint32_t nowMs) const
 {
-    if (masterNum < 1 || masterNum > _channels.size()) return false;
-    return _channels[masterNum - 1]->isAdaptiveActive(currentTimeMinutes, nowMs);
+    const LightManagerChannel* ch = channel(masterNum);
+    return ch ? ch->isAdaptiveActive(currentTimeMinutes, nowMs) : false;
 }

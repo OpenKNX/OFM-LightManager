@@ -17,10 +17,10 @@ class IMasterProvider {
 public:
     virtual ~IMasterProvider() = default;
 
-    /** Number of configured masters (0..MAX_MASTERS). */
+    /** Highest possible master number (MAX_MASTERS). Masters are sparse: getMaster(n) may be nullptr. */
     virtual uint8_t providerMasterCount() const = 0;
 
-    /** Lookup a master by 1-based number. Returns nullptr if out-of-range. */
+    /** Lookup a master by 1-based number. Returns nullptr if out-of-range, deactivated or suspended. */
     virtual Master* providerGetMaster(uint8_t masterNum) = 0;
 
     /** Last interpolated value for a master (cached in the channel). */
@@ -72,7 +72,7 @@ public:
     bool isEnabled() const { return _enabled; }
     void setEnabled(bool enabled) { _enabled = enabled; }
 
-    /** Number of configured masters — delegated to provider (0 if none). */
+    /** Highest possible master number — delegated to provider (0 if none). Check getMaster(n) != nullptr. */
     uint8_t getMasterCount() const { return _provider ? _provider->providerMasterCount() : 0; }
 
     /** Global apply-block (affects all masters). */
