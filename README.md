@@ -9,13 +9,13 @@ OpenKNX Function Module für **Human Centric Lighting (HCL)** – eigenständige
 ### Bekannte Einschränkungen
 
 - Adaptive Helligkeit im Closed-Loop-Modus ist noch nicht mit allen Sensor-DPTs getestet.
-- Astronomische HCL-Kurve setzt eine korrekt synchronisierte Systemuhr voraus.
+- Astro-verankerte Stützpunkte und die interne Tag/Nacht-Erkennung setzen eine korrekt synchronisierte Systemuhr voraus.
 
 ## Features
 
 ### HCL-Master-Engine
-- Tageszeit-abhängige Farbtemperatur- und Helligkeitssteuerung via **Stützpunkttabellen** (SP0–SP9) mit konfigurierbarer Interpolation
-- **Astronomische HCL-Kurve** (Sonnenfenster-Modus): Farbtemperatur und Helligkeit anhand von Sonnenaufgang, Sonnenuntergang und konfigurierbaren Offsets
+- Tageszeit-abhängige Farbtemperatur- und Helligkeitssteuerung via **Stützpunkttabellen** (bis zu 10 Stützpunkte je Profil) mit konfigurierbarer Interpolation
+- **Anker-Stützpunkte** (F8): Jeder Stützpunkt wahlweise zu einer festen Uhrzeit oder relativ zu Sonnenaufgang, Sonnenuntergang, bürgerlicher Morgen-/Abenddämmerung oder Sonnenhöchststand (± Offset), optional begrenzt durch eine „Nicht vor"-/„Nicht nach"-Uhrzeit
 - Bis zu **N unabhängige HCL-Kanäle** parallel betreibbar (Anzahl per OAM vorgegeben)
 
 ### Saison-Profile
@@ -23,12 +23,12 @@ Jeder Lichtmanager unterstützt vier Modi:
 
 | Modus | Beschreibung |
 |---|---|
-| Aus | Immer Winter-Stützpunkte aktiv (kein Sommer-Modus) |
+| Aus | Saison-neutral; Saison-Filter der Profile werden nicht ausgewertet |
 | Automatisch (Sommer/Winterzeit) | Nutzt System-DST-Flag; optionaler Offset-Parameter für abweichende Regionen |
 | Festes Datum | Konfigurierbares Sommerfenster (Monat+Tag); unterstützt Jahreswechsel-Übergang |
 | Per Kommunikationsobjekt | K04 schaltet Sommer/Winter zur Laufzeit; Zustand wird im Flash persistiert |
 
-Sommer-Stützpunkttabellen (`SP0–SP9 Sommer`) parallel zu Winter-Tabellen; Interpolation nutzt automatisch das aktive Profil.
+Die Saison wirkt über die Profil-Slots: Jedes Profil hat einen Saison-Filter (`Sommer+Winter` / `Sommer` / `Winter` / `Fallback`), der Multi-Profil-Selektor wählt das passende Profil.
 
 ### Adaptive Helligkeit
 Modus je Lichtmanager: `Aus` / `Tageslicht-Kompensation (Open-Loop)` / `Konstantlichtregelung (Closed-Loop)`
@@ -114,7 +114,7 @@ Per-Kanal getrennte Slew-Raten für Tag und Nacht mit interner Astro-Quelle oder
 ```cpp
 // Nur in der Kanalauswahl aktivierte Master existieren (sonst nullptr)
 if (HCL::masterManager.getMaster(masterNum) == nullptr) return;
-HCL::Value val = HCL::masterManager.getCurrentValue(masterNum); // masterNum: 1-based
+HCL::InterpolatedValue val = HCL::masterManager.getCurrentValue(masterNum); // masterNum: 1-based
 // val.kelvin, val.brightness (0-100)
 ```
 
@@ -136,8 +136,8 @@ class MyConsumer : public ILightManagerOutput {
     // Fallback: onLightManagerValue() wird aufgerufen wenn onLightManagerPartial() nicht überschrieben wird
 };
 
-// Einmalig beim Setup:
-LightManagerModule::instance().registerOutput(&myConsumer);
+// Einmalig beim Setup, je zugeordnetem Lichtmanager:
+openknxLightManagerModule.registerOutput(masterNum, &myConsumer);
 ```
 
 Push wird nur ausgelöst, wenn der Kanal **nicht** gesperrt ist. Beim Übergang gesperrt → entsperrt erfolgt ein sofortiger Push.
@@ -147,8 +147,8 @@ Weitere Details: [doc/integration.md](doc/integration.md)
 ## ETS-Konfiguration
 
 - Bis zu N Lichtmanager (Anzahl im OAM vorgegeben), einzeln aktivierbar im Tab **Kanalauswahl**; je Lichtmanager Beschreibung und „Suspendiert"
-- Stützpunkte SP0–SP9 (Winter + Sommer) mit Uhrzeit, Helligkeit (%) und Farbtemperatur (K)
-- Astronomische Parameter: Sonnenaufgang-/Sonnenuntergang-Offset (min), Helligkeit/CT Min/Max
+- Bis zu 4 HCL-Profile je Lichtmanager mit je 10 Stützpunkten (Typ/Anker, Uhrzeit bzw. Offset, Nicht vor/nach, Helligkeit %, Farbtemperatur K, externe Farbtemperatur, Mix)
+- Astro-Quelle je Lichtmanager: automatisch aus den Geo-Koordinaten oder manuell vorgegebene Sonnenauf-/-untergangszeit
 - Suffix-Anzeige in ETS: `%`, `K`, `K/min`, `lx`, `min`
 
 ## Development
