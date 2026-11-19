@@ -22,7 +22,7 @@ LightManagerModule::LightManagerModule() = default;
 const std::string LightManagerModule::name()    { return "LightManager"; }
 const std::string LightManagerModule::version()
 {
-    return MODULE_LightManagerModule_Version;
+    return MODULE_LightManager_Version;
 }
 
 // ---------------------------------------------------------------------------
