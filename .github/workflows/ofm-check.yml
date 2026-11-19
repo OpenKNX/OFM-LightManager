@@ -10,8 +10,10 @@ jobs:
         include:
           - oam: OAM-HueGateway
             KNXPROD_PREFIX: HueGateway
-          - oam: OAM-NeoPixel
-            KNXPROD_PREFIX: NeoPixel
+          # OAM-NeoPixel erzeugt NeoPixel.hw.conf.xml erst in Build-Release.ps1; der Producer-Precheck der
+          # zentralen Action läuft vorher und scheitert daran. Wieder aktivieren, sobald der Precheck abschaltbar ist.
+          # - oam: OAM-NeoPixel
+          #   KNXPROD_PREFIX: NeoPixel
 
     uses: openknx/actions/.github/workflows/openknx-ofm-check.yml@v0
     with:
