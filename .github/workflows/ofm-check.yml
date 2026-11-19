@@ -1,15 +1,23 @@
-# Baut bei jedem Push die knxprod und die Release-Firmware von OAM-HueGateway mit genau diesem Commit.
+# Baut bei jedem Push die knxprod und die Release-Firmware aller OAMs, die den LightManager nutzen, mit genau diesem Commit.
 on: [push]
 
 jobs:
-  ofm-check-job:
-    name: Check OFM
+  check:
+    name: Check '${{ matrix.oam }}'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - oam: OAM-HueGateway
+            KNXPROD_PREFIX: HueGateway
+          - oam: OAM-NeoPixel
+            KNXPROD_PREFIX: NeoPixel
 
     uses: openknx/actions/.github/workflows/openknx-ofm-check.yml@v0
     with:
       ofm_prefix: LMG
-      oam: OAM-HueGateway
+      oam: ${{ matrix.oam }}
       # Fest gesetzt: Die automatische Branch-Wahl im zentralen Workflow greift derzeit nicht und nähme sonst v1.
       oam_ref: v1dev
       target: Release
-      KNXPROD_PREFIX: HueGateway
+      KNXPROD_PREFIX: ${{ matrix.KNXPROD_PREFIX }}
