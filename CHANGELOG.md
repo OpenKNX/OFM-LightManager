@@ -2,7 +2,11 @@
 
 Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
-## Geplantes folgendes Release [0.4.0]
+## Geplantes folgendes Release [0.4.1]
+
+> **Hinweis (Build):** Die Bibliothek heißt jetzt `OFM-LightManager` statt `OFM-LightManagerModule`, passend zum Ordnernamen. Der OpenKNX-Build sucht den Git-Hash jedes Moduls unter `lib/<Bibliotheksname>`; mit dem alten Namen schlug der Linux-Build fehl, und Windows-Builds ließen den Hash in `versions.h` weg. Projekte, die die Bibliothek über den Namen einbinden, müssen ihn anpassen. Das Versions-Makro heißt jetzt `MODULE_LightManager_Version`.
+
+## [0.4.0] - 2026-09-18 — Kanalauswahl
 
 > **Breaking (Kanalauswahl):** Die Lichtmanager werden nicht mehr über „Verfügbare Kanäle" freigeschaltet, sondern einzeln im neuen Tab **Kanalauswahl**. Nach dem ETS-Update sind alle Lichtmanager deaktiviert und müssen dort wieder aktiviert werden; die Einstellungen der Kanäle bleiben erhalten.
 
